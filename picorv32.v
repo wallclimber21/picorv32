@@ -1862,7 +1862,7 @@ module picorv32_pcpi_fmul (
 	input      [31:0] pcpi_rs1,
 	input      [31:0] pcpi_rs2,
 	output reg        pcpi_wr,
-	output reg [31:0] pcpi_rd,
+	output     [31:0] pcpi_rd,
 	output            pcpi_wait,
 	output reg        pcpi_ready
 );
@@ -1872,12 +1872,22 @@ module picorv32_pcpi_fmul (
 	wire instr_rs1_signed = |{instr_mulh, instr_mulhsu};
 	wire instr_rs2_signed = |{instr_mulh};
 
-    reg [31:0] rs1_q, rs2_q;
-    reg instr_any_mul_q;
 
     always @(posedge clk) begin
            instr_any_mul_q      <= instr_any_mul;
     end
+
+	wire capture_signed;
+	assign capture_signed = (pcpi_insn[13:12] == 2'b00) ? 1'b1 :		// mul
+							(pcpi_insn[13:12] == 2'b01) ? 1'b1 :		// mulh
+													      1'b0 ;		// Everything else...
+
+	wire [63:0] pcpi_rs1_expand, pcpi_rs2_expand;
+    assign pcpi_rs1_expand = capture_signed ? { {32{pcpi_rs1[31]}}, pcpi_rs1 } : pcpi_rs1;
+    assign pcpi_rs2_expand = capture_signed ? { {32{pcpi_rs2[31]}}, pcpi_rs2 } : pcpi_rs2;
+
+    reg signed [63:0] rs1_q, rs2_q;
+    reg instr_any_mul_q;
 
 	always @(posedge clk) begin
 		instr_mul <= 0;
@@ -1892,22 +1902,28 @@ module picorv32_pcpi_fmul (
 				3'b010: instr_mulhsu <= 1;
 				3'b011: instr_mulhu <= 1;
 			endcase
+
 		end
 
         if (resetn && pcpi_valid) begin
-            rs1_q       <= pcpi_rs1;
-            rs2_q       <= pcpi_rs2;
+			rs1_q       <= pcpi_rs1_expand;
+			rs2_q       <= pcpi_rs2_expand;
         end
 
 	end
 
-	wire signed [63:0] rs1_expand, rs2_expand, rd;
+	reg signed [63:0] rd;
 
-    assign rs1_expand = instr_rs1_signed ? { {32{rs1_q[31]}}, rs1_q } : rs1_q;
-    assign rs2_expand = instr_rs2_signed ? { {32{rs2_q[31]}}, rs2_q } : rs2_q;
-    assign rd = rs1_expand * rs2_expand;
+	always @(posedge clk) begin
+		if (instr_any_mul) begin
+			rd <= rs1_q * rs2_q;
+		end
+	end
+
 
     assign pcpi_wait    = 1'b0;
+
+	reg instr_any_mulh_q;
 
 	always @(posedge clk) begin
 		pcpi_wr <= 0;
@@ -1916,9 +1932,12 @@ module picorv32_pcpi_fmul (
 		if (instr_any_mul & !instr_any_mul_q) begin
 			pcpi_wr <= 1;
 			pcpi_ready <= 1;
-			pcpi_rd <= instr_any_mulh ? rd >> 32 : rd;
 		end
+
+		instr_any_mulh_q <= instr_any_mulh;
 	end
+
+	assign pcpi_rd = instr_any_mulh_q ? rd >> 32 : rd;
 endmodule
 
 
