@@ -1913,7 +1913,7 @@ module picorv32_pcpi_fmul (
 	end
 
 	wire signed [63:0] rd;
-	muls_33x33 u_muls_33x33(
+	muls_33x33_lat1 u_muls_33x33(
 		.clock(clk),
 		.clken(instr_any_mul),
 		.dataa(rs1_q),
