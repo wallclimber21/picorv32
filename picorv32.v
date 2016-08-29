@@ -1882,11 +1882,11 @@ module picorv32_pcpi_fmul (
 							(pcpi_insn[13:12] == 2'b01) ? 1'b1 :		// mulh
 													      1'b0 ;		// Everything else...
 
-	wire [63:0] pcpi_rs1_expand, pcpi_rs2_expand;
-    assign pcpi_rs1_expand = capture_signed ? { {32{pcpi_rs1[31]}}, pcpi_rs1 } : pcpi_rs1;
-    assign pcpi_rs2_expand = capture_signed ? { {32{pcpi_rs2[31]}}, pcpi_rs2 } : pcpi_rs2;
+	wire [32:0] pcpi_rs1_expand, pcpi_rs2_expand;
+    assign pcpi_rs1_expand = capture_signed ? {pcpi_rs1[31], pcpi_rs1 } : pcpi_rs1;
+    assign pcpi_rs2_expand = capture_signed ? {pcpi_rs2[31], pcpi_rs2 } : pcpi_rs2;
 
-    reg signed [63:0] rs1_q, rs2_q;
+    reg signed [32:0] rs1_q, rs2_q;
     reg instr_any_mul_q;
 
 	always @(posedge clk) begin
@@ -1912,14 +1912,14 @@ module picorv32_pcpi_fmul (
 
 	end
 
-	reg signed [63:0] rd;
-
-	always @(posedge clk) begin
-		if (instr_any_mul) begin
-			rd <= rs1_q * rs2_q;
-		end
-	end
-
+	wire signed [63:0] rd;
+	muls_33x33 u_muls_33x33(
+		.clock(clk),
+		.clken(instr_any_mul),
+		.dataa(rs1_q),
+		.datab(rs2_q),
+		.result(rd)
+	);
 
     assign pcpi_wait    = 1'b0;
 
