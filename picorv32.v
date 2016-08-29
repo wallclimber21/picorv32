@@ -1920,7 +1920,7 @@ module picorv32_pcpi_fmul (
 		.datab(rs2_q),
 		.result(rd),
 		.aclr(1'b0),
-		.sclr(!resetn),
+		.sclr(1'b0),
 		.sum(1'b0)
 	);
 
@@ -1932,6 +1932,13 @@ module picorv32_pcpi_fmul (
             u_muls_33x33_lat1.lpm_widtha = 33,
             u_muls_33x33_lat1.lpm_widthb = 33,
             u_muls_33x33_lat1.lpm_widthp = 64;
+
+	reg signed [63:0] rd_q;
+
+	always @(posedge clk)
+	begin
+		rd_q <= rd;
+	end
 
     assign pcpi_wait    = 1'b0;
 
@@ -1949,7 +1956,7 @@ module picorv32_pcpi_fmul (
 		instr_any_mulh_q <= instr_any_mulh;
 	end
 
-	assign pcpi_rd = instr_any_mulh_q ? rd >> 32 : rd;
+	assign pcpi_rd = instr_any_mulh_q ? rd_q >> 32 : rd_q;
 endmodule
 
 
