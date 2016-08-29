@@ -1913,13 +1913,25 @@ module picorv32_pcpi_fmul (
 	end
 
 	wire signed [63:0] rd;
-	muls_33x33 u_muls_33x33(
+	lpm_mult u_muls_33x33_lat1(
 		.clock(clk),
 		.clken(instr_any_mul),
 		.dataa(rs1_q),
 		.datab(rs2_q),
-		.result(rd)
+		.result(rd),
+		.aclr(1'b0),
+		.sclr(!resetn),
+		.sum(1'b0)
 	);
+
+    defparam
+            u_muls_33x33_lat1.lpm_hint = "MAXIMIZE_SPEED=1",
+            u_muls_33x33_lat1.lpm_pipeline = 1,
+            u_muls_33x33_lat1.lpm_representation = "SIGNED",
+            u_muls_33x33_lat1.lpm_type = "LPM_MULT",
+            u_muls_33x33_lat1.lpm_widtha = 33,
+            u_muls_33x33_lat1.lpm_widthb = 33,
+            u_muls_33x33_lat1.lpm_widthp = 64;
 
     assign pcpi_wait    = 1'b0;
 
