@@ -286,6 +286,10 @@ module picorv32 #(
 
 
 	// Memory Interface
+    `define MEM_STATE_IDLE			0
+    `define MEM_STATE_READ			1
+    `define MEM_STATE_WRITE			2
+    `define MEM_STATE_PREFETCH		3
 
 	reg [1:0] mem_state;
 	reg [1:0] mem_wordsize;
@@ -483,14 +487,14 @@ module picorv32 #(
 			if (mem_do_wdata)
 				`assert(!(mem_do_prefetch || mem_do_rinst || mem_do_rdata));
 
-			if (mem_state == 2 || mem_state == 3)
+			if (mem_state == `MEM_STATE_WRITE || mem_state == `MEM_STATE_PREFETCH)
 				`assert(mem_valid || mem_do_prefetch);
 		end
 	end
 
 	always @(posedge clk) begin
 		if (!resetn || trap) begin
-			mem_state <= 0;
+			mem_state <= `MEM_STATE_IDLE;
 			if (!resetn || mem_ready)
 				mem_valid <= 0;
 			mem_la_secondword <= 0;
@@ -502,20 +506,20 @@ module picorv32 #(
 				mem_wstrb <= mem_la_wstrb & {4{mem_la_write}};
 			end
 			case (mem_state)
-				0: begin
+				`MEM_STATE_IDLE: begin
 					if (mem_do_prefetch || mem_do_rinst || mem_do_rdata) begin
 						mem_valid <= !mem_la_use_prefetched_high_word;
 						mem_instr <= mem_do_prefetch || mem_do_rinst;
 						mem_wstrb <= 0;
-						mem_state <= 1;
+						mem_state <= `MEM_STATE_READ;
 					end
 					if (mem_do_wdata) begin
 						mem_valid <= 1;
 						mem_instr <= 0;
-						mem_state <= 2;
+						mem_state <= `MEM_STATE_WRITE;
 					end
 				end
-				1: begin
+				`MEM_STATE_READ: begin
 					`assert(mem_wstrb == 0);
 					`assert(mem_do_prefetch || mem_do_rinst || mem_do_rdata);
 					`assert(mem_valid == !mem_la_use_prefetched_high_word);
@@ -537,23 +541,23 @@ module picorv32 #(
 									prefetched_high_word <= 0;
 								end
 							end
-							mem_state <= mem_do_rinst || mem_do_rdata ? 0 : 3;
+							mem_state <= mem_do_rinst || mem_do_rdata ? `MEM_STATE_IDLE : `MEM_STATE_PREFETCH;
 						end
 					end
 				end
-				2: begin
+				`MEM_STATE_WRITE: begin
 					`assert(mem_wstrb != 0);
 					`assert(mem_do_wdata);
 					if (mem_xfer) begin
 						mem_valid <= 0;
-						mem_state <= 0;
+						mem_state <=`MEM_STATE_IDLE;
 					end
 				end
 				3: begin
 					`assert(mem_wstrb == 0);
 					`assert(mem_do_prefetch);
 					if (mem_do_rinst) begin
-						mem_state <= 0;
+						mem_state <= `MEM_STATE_IDLE;
 					end
 				end
 			endcase
